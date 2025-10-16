@@ -1,17 +1,47 @@
-import { supabase } from "../../lib/supabaseClient";
+import PDFDocument from "pdfkit";
+import { NextApiRequest, NextApiResponse } from "next";
 
 export default async function handler(req, res) {
-  const { url } = req.query || {};
-  if (!url) return res.status(400).json({ error: "Missing url" });
-  if (!supabase) return res.status(200).json({ note: "Supabase not configured" });
+  const { url, score, analysis } = req.body || {};
 
-  try {
-    const { data: site } = await supabase.from("websites").select("id").eq("url", url).maybeSingle();
-    if (!site) return res.status(404).json({ error: "No records for this URL" });
-    const { data: scan } = await supabase.from("scans").select("id, created_at, result_json").eq("website_id", site.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (!scan) return res.status(404).json({ error: "No scans yet" });
-    return res.status(200).json(scan);
-  } catch (e) {
-    return res.status(500).json({ error: "Failed", details: String(e.message || e) });
-  }
+  // PDF Header
+  const doc = new PDFDocument({ size: "A4", margin: 50 });
+
+  // Output direkt an den Browser streamen
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="LegalTrust_Report_${new Date().toISOString().split("T")[0]}.pdf"`
+  );
+  doc.pipe(res);
+
+  // Logo / Titel
+  doc.fontSize(22).fillColor("#1E90FF").text("LegalTrust – DSGVO Website Report");
+  doc.moveDown(1);
+
+  // Meta
+  doc.fontSize(12).fillColor("black").text(`Website: ${url}`);
+  doc.text(`Datum: ${new Date().toLocaleString("de-DE")}`);
+  doc.moveDown(1);
+
+  // Score
+  doc.fontSize(16).fillColor(score > 80 ? "green" : score > 60 ? "orange" : "red");
+  doc.text(`Score: ${score}/100`);
+  doc.moveDown(1);
+
+  // Analyse
+  doc.fillColor("black").fontSize(12).text("Analyse:", { underline: true });
+  doc.moveDown(0.5);
+  doc.text(analysis?.summary || "Keine Analyse vorhanden.", {
+    lineGap: 4,
+  });
+
+  // Fußzeile
+  doc.moveDown(2);
+  doc.fontSize(10).fillColor("gray")
+    .text("© 2025 LegalTrust.dev | Automatisierter Datenschutz-Report", {
+      align: "center",
+    });
+
+  doc.end();
 }
