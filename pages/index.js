@@ -1,41 +1,74 @@
 import { useState } from "react";
 
 export default function Home() {
-  const [url, setUrl] = useState("");
+  const [domain, setDomain] = useState("https://www.example.com");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [err, setErr] = useState(null);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError(""); setResult(null);
-    if (!/^https?:\/\//i.test(url)) { setError("Bitte URL mit https:// angeben."); return; }
-    setLoading(true);
-    try{
+  const runScan = async () => {
+    setLoading(true); setErr(null); setResult(null);
+    try {
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url: domain, heuristics: { https: domain.startsWith("https") } }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Scan fehlgeschlagen");
+      if (!res.ok || !data.ok) throw new Error(data.error || "Scan fehlgeschlagen");
       setResult(data);
-    }catch(err){ setError(err.message); }
-    finally{ setLoading(false); }
-  }
+    } catch (e) {
+      setErr(String(e.message || e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadPdf = async () => {
+    const res = await fetch("/api/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: domain,
+        score: result?.analysis?.score ?? 72,
+        analysis: { summary: result?.analysis?.summary || "Demo-Report" },
+      }),
+    });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url);
+  };
 
   return (
-    <main style={{ fontFamily: "system-ui", color: "#fff", background: "#0b1020", minHeight: "100vh", padding: "40px" }}>
-      <h1>LegalTrust.dev – Website Compliance Scanner</h1>
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <input value={url} onChange={(e)=>setUrl(e.target.value)} placeholder="https://beispiel.de"
-          style={{ width: 360, padding: 10, borderRadius: 8, border: "1px solid #323a6b", background: "#0f1a44", color: "#fff" }}/>
-        <button disabled={loading} style={{ padding: "10px 14px", borderRadius: 8, background: "#4f7cff", color: "#fff", border: "1px solid #2b49ff" }}>
-          {loading ? "Scanne..." : "Scan starten"}
-        </button>
-      </form>
-      {error && <div style={{ marginTop: 10, color: "#ef4444" }}>{error}</div>}
-      {result && <pre style={{ background: "#101631", marginTop: 20, padding: 12, borderRadius: 8, overflowX:"auto" }}>{JSON.stringify(result, null, 2)}</pre>}
+    <main style={{ padding: 24, fontFamily: "system-ui" }}>
+      <h1>LegalTrust.dev</h1>
+      <p>Domain eingeben → Scan starten → PDF-Report herunterladen.</p>
+
+      <input
+        value={domain}
+        onChange={(e) => setDomain(e.target.value)}
+        style={{ width: 420, padding: 8 }}
+        placeholder="https://example.com"
+      />
+      <button onClick={runScan} disabled={loading} style={{ marginLeft: 8, padding: "8px 12px" }}>
+        {loading ? "Scanning…" : "Scan starten"}
+      </button>
+      <button onClick={downloadPdf} style={{ marginLeft: 8, padding: "8px 12px" }}>
+        📄 PDF-Report herunterladen
+      </button>
+
+      <hr style={{ margin: "24px 0" }} />
+
+      <div>
+        <code><a href="/api/debug-env" target="_blank" rel="noreferrer">/api/debug-env</a></code>
+      </div>
+
+      {err && <pre style={{ background: "#fee", padding: 12 }}>❌ {err}</pre>}
+      {result && (
+        <pre style={{ background: "#eef", padding: 12, whiteSpace: "pre-wrap" }}>
+{JSON.stringify(result, null, 2)}
+        </pre>
+      )}
     </main>
   );
 }
