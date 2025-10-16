@@ -102,11 +102,12 @@ if (!ai) {
     const prompt = `Bewerte rechtliche Pflichtangaben der Website ${url}.
 Impressum: ${heuristics.hasImpressum}; Datenschutz: ${heuristics.hasPrivacy}; Cookie-Indikator: ${heuristics.hasCookieIndicator}; SSL: ${heuristics.hasSSL}.
 Antworte als JSON: {"risk_level":"low|medium|high","score":0-100,"summary":"max 2 Sätze deutsch"}`;
-
-    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+	
+const projectId = process.env.proj_jpyJmC5y7mh1CdMKgWBW7ADd; // neue Env Variable
+    const aiRes = await fetch(`https://api.openai.com/v1/projects/${proj_jpyJmC5y7mh1CdMKgWBW7ADd}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
+       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,  // dein sk-proj Key
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
