@@ -1,16 +1,11 @@
 export const config = {
-  api: {
-    bodyParser: { sizeLimit: "1mb" },
-  },
+  api: { bodyParser: { sizeLimit: "1mb" } },
 };
 
 export default async function handler(req, res) {
-  // Dynamischer Import erst hier → verhindert Webpack-Fehler
-  const PDFDocument = (await import("pdfkit")).default;
+  const PDFDocument = (await import("pdfkit")).default; // nur serverseitig laden
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Only POST allowed" });
 
   const { url, score = 0, analysis = {} } = req.body || {};
   const summary = analysis.summary || "Keine Analyse verfügbar.";
@@ -20,9 +15,7 @@ export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="LegalTrust_Report_${new Date()
-      .toISOString()
-      .split("T")[0]}.pdf"`
+    `attachment; filename="LegalTrust_Report_${new Date().toISOString().split("T")[0]}.pdf"`
   );
 
   doc.pipe(res);
@@ -38,7 +31,6 @@ export default async function handler(req, res) {
   doc.text(`Datum: ${new Date().toLocaleString("de-DE")}`);
   doc.moveDown(1);
 
-  // Score bar
   const barWidth = 400;
   const filledWidth = Math.min(barWidth * (score / 100), barWidth);
   const startX = 100;
@@ -54,16 +46,10 @@ export default async function handler(req, res) {
 
   doc.fontSize(14).fillColor(blue).text("Analyse:", { underline: true });
   doc.moveDown(0.5);
-  doc.fontSize(12).fillColor(darkGray).text(summary, {
-    lineGap: 4,
-    align: "justify",
-  });
+  doc.fontSize(12).fillColor(darkGray).text(summary, { lineGap: 4, align: "justify" });
 
   doc.moveDown(3);
-  doc.fontSize(10).fillColor("#666").text("© 2025 LegalTrust.dev | Automatisierter Datenschutz-Report", {
-    align: "center",
-  });
+  doc.fontSize(10).fillColor("#666").text("© 2025 LegalTrust.dev | Automatisierter Datenschutz-Report", { align: "center" });
 
   doc.end();
 }
-
