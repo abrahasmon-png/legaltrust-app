@@ -63,6 +63,40 @@ export default async function handler(req, res) {
     return res.status(200).json({ url, heuristics, analysis: fallback, stored: null });
   }
 
+const MODEL_CANDIDATES = [
+  process.env.OPENAI_MODEL,   // falls gesetzt
+  "gpt-4o-mini",
+  "gpt-4o",
+  "gpt-4.1-mini"
+].filter(Boolean);
+
+let modelUsed = null;
+let ai = null;
+let lastErr = null;
+
+for (const m of MODEL_CANDIDATES) {
+  try {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: m, messages: [{ role: "user", content: prompt }], temperature: 0.2 })
+    });
+    const txt = await resp.text();
+    if (!resp.ok) { lastErr = `HTTP ${resp.status} – ${txt}`; continue; }
+    ai = JSON.parse(txt);
+    modelUsed = m;
+    break;
+  } catch (e) {
+    lastErr = String(e?.message || e);
+    continue;
+  }
+}
+
+if (!ai) {
+  return fail(res, 502, "OpenAI-Fehler (alle Modelle)", lastErr || "unbekannt");
+}
+
+
   // 4) OpenAI-Aufruf mit sauberem Fehler-Handling
   try {
     const prompt = `Bewerte rechtliche Pflichtangaben der Website ${url}.
