@@ -82,13 +82,13 @@ Antworte als JSON: {"risk_level":"low|medium|high","score":0-100,"summary":"max 
       })
     });
 
-    if (!aiRes.ok) {
-      const txt = await aiRes.text();
-      // Häufig: 401 (Key falsch), 429 (Rate-Limit), 500 (temporär)
-      return fail(res, 502, "OpenAI-Fehler", txt);
-    }
+    const rawText = await aiRes.text();                // <— NEU: Text vor Parse holen
+if (!aiRes.ok) {
+  return fail(res, 502, "OpenAI-Fehler", `HTTP ${aiRes.status} – ${rawText}`); // <— NEU: Status + Payload
+}
+const ai = JSON.parse(rawText);
 
-    const ai = await aiRes.json();
+    
     let content = ai?.choices?.[0]?.message?.content || "{}";
     let analysis;
     try {
