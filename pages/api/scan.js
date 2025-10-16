@@ -50,5 +50,23 @@ Gib JSON mit {risk_level, score, summary}.`;
         "Ist das Modell korrekt (gpt-4.1-mini ist verfügbar)?"
       ],
     });
+    } catch (err) {
+  let status = err?.status ?? 500;
+  let body = null;
+  if (err?.response) {
+    try { body = await err.response.json(); }
+    catch { try { body = await err.response.text(); } catch {}
+    }
+    if (err?.response?.status) status = err.response.status;
+  }
+  return res.status(status).json({
+    ok:false,
+    error:"OpenAI request failed",
+    status,
+    message: err?.message || String(err),
+    body
+  });
+}
+
   }
 }
