@@ -1,78 +1,67 @@
 // pages/api/scan.js
-export const config = { runtime: "nodejs", api: { bodyParser: { sizeLimit: "1mb" } } };
+// Robuster Scan-Endpoint für LegalTrust.dev
+// - GET: Selbsttest (kein Body) -> prüft OpenAI connectivity
+// - POST: führt Audit durch, erwartet { url: string, heuristics?: object }
+// Wichtig: in Vercel als Environment Variable OPENAI_API_KEY setzen
+export const config = {
+  runtime: "nodejs",
+  api: { bodyParser: { sizeLimit: "1mb" } },
+};
 
 import OpenAI from "openai";
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export default async function handler(req, res) {
-  // ➜ GET = Selbsttest im Browser (keine Body/Frontend-Probleme)
-  if (req.method === "GET") {
-    try {
-      if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({ ok:false, where:"scan:get", error:"OPENAI_API_KEY missing" });
-      }
-     const r = await client.responses.create({
-  model: "gpt-4.1-mini",
-  input: "Give me JSON: {\"risk_level\":\"low\",\"score\":95,\"summary\":\"OK\"}",
-  text: {                    // ⬅️ NEU: statt response_format
-    format: { type: "json_object" }
+/**
+ * Helper: erstellt OpenAI-Client (lazily)
+ */
+function getClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY missing");
   }
-});
-
-
-      
-      return res.status(200).json({ ok:true, where:"scan:get", analysis: JSON.parse(r.output_text || "{}") });
-    } catch (err) {
-      return respondError(res, err, "scan:get");
-    }
-  }
-
-  // ➜ POST = normaler Scan
-  if (req.method !== "POST") return res.status(405).json({ ok:false, error:"Method not allowed" });
-
-  try {
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({ ok:false, where:"scan:post", error:"OPENAI_API_KEY missing" });
-    }
-
-    const { url = "", heuristics = {} } = req.body || {};
-    if (!url) return res.status(400).json({ ok:false, where:"scan:post", error:"Missing 'url' in body" });
-
-    const prompt = `Du bist Auditor für DSGVO/Impressum/Cookies/SSL.
-Bewerte die Domain: ${url}
-Signale: ${JSON.stringify(heuristics)}
-Gib NUR JSON mit { "risk_level":"low|medium|high", "score":0-100, "summary":"kurz" }.`;
-
-    const r = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: prompt,
-      response_format: { type: "json_object" }
-    });
-
-    let analysis = {};
-    try { analysis = JSON.parse(r.output_text || "{}"); } catch {}
-
-    return res.status(200).json({ ok:true, url, heuristics, analysis, meta:{ model:"gpt-4.1-mini" } });
-  } catch (err) {
-    return respondError(res, err, "scan:post");
-  }
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
-async function respondError(res, err, where) {
+/**
+ * Helper: standardisierte Fehlerantworten mit möglichst vielen Details
+ */
+async function respondError(res, err, where = "scan") {
   let status = err?.status ?? 500;
   let body = null;
+
+  // err.response kann ein Fetch-Response sein (SDK intern)
   if (err?.response) {
-    try { body = await err.response.json(); }
-    catch { try { body = await err.response.text(); } catch {}
+    try {
+      // versuche JSON first
+      body = await err.response.json();
+    } catch {
+      try {
+        body = await err.response.text();
+      } catch {
+        body = String(err);
+      }
     }
-    if (err?.response?.status) status = err.response.status;
+    if (err.response?.status) status = err.response.status;
   }
+
+  // Fallbacks
+  const message = err?.message || String(err) || "Unknown error";
+
   return res.status(status).json({
-    ok:false,
-    error:"OpenAI request failed",
+    ok: false,
+    error: "OpenAI request failed",
     where,
     status,
-    message: err?.message || String(err),
-    body
+    message,
+    body,
   });
 }
+
+/**
+ * Main handler
+ */
+export default async function handler(req, res) {
+  // GET -> Selbsttest (kein Body nötig)
+  if (req.method === "GET") {
+    try {
+      const client = getClient();
+
+      // Wir fordern ein kl
