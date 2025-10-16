@@ -11,11 +11,16 @@ export default async function handler(req, res) {
       if (!process.env.OPENAI_API_KEY) {
         return res.status(500).json({ ok:false, where:"scan:get", error:"OPENAI_API_KEY missing" });
       }
-      const r = await client.responses.create({
-        model: "gpt-4.1-mini",
-        input: "Give me JSON: {\"risk_level\":\"low\",\"score\":95,\"summary\":\"OK\"}",
-        response_format: { type: "json_object" }
-      });
+     const r = await client.responses.create({
+  model: "gpt-4.1-mini",
+  input: "Give me JSON: {\"risk_level\":\"low\",\"score\":95,\"summary\":\"OK\"}",
+  text: {                    // ⬅️ NEU: statt response_format
+    format: { type: "json_object" }
+  }
+});
+
+
+      
       return res.status(200).json({ ok:true, where:"scan:get", analysis: JSON.parse(r.output_text || "{}") });
     } catch (err) {
       return respondError(res, err, "scan:get");
