@@ -1,7 +1,13 @@
-import PDFDocument from "pdfkit";
+export const config = {
+  api: {
+    bodyParser: { sizeLimit: "1mb" },
+  },
+};
 
-// API-Route: /api/report
 export default async function handler(req, res) {
+  // Dynamischer Import erst hier → verhindert Webpack-Fehler
+  const PDFDocument = (await import("pdfkit")).default;
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" });
   }
@@ -9,10 +15,8 @@ export default async function handler(req, res) {
   const { url, score = 0, analysis = {} } = req.body || {};
   const summary = analysis.summary || "Keine Analyse verfügbar.";
 
-  // PDF-Dokument erzeugen
   const doc = new PDFDocument({ size: "A4", margin: 50 });
 
-  // Header für Browser-Download
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
@@ -21,24 +25,20 @@ export default async function handler(req, res) {
       .split("T")[0]}.pdf"`
   );
 
-  // Stream direkt an Browser
   doc.pipe(res);
 
-  // Farben & Branding
   const blue = "#1E90FF";
   const lightGray = "#EEEEEE";
   const darkGray = "#333333";
 
-  // Titel
   doc.fontSize(22).fillColor(blue).text("LegalTrust – Website Compliance Report");
   doc.moveDown(1);
 
-  // Meta-Infos
   doc.fontSize(12).fillColor(darkGray).text(`Website: ${url}`);
   doc.text(`Datum: ${new Date().toLocaleString("de-DE")}`);
   doc.moveDown(1);
 
-  // Score-Bereich mit Balken
+  // Score bar
   const barWidth = 400;
   const filledWidth = Math.min(barWidth * (score / 100), barWidth);
   const startX = 100;
@@ -52,7 +52,6 @@ export default async function handler(req, res) {
   doc.fontSize(16).fillColor(darkGray).text(`Score: ${score}/100`);
   doc.moveDown(1);
 
-  // Analyse-Text
   doc.fontSize(14).fillColor(blue).text("Analyse:", { underline: true });
   doc.moveDown(0.5);
   doc.fontSize(12).fillColor(darkGray).text(summary, {
@@ -60,7 +59,6 @@ export default async function handler(req, res) {
     align: "justify",
   });
 
-  // Fußzeile
   doc.moveDown(3);
   doc.fontSize(10).fillColor("#666").text("© 2025 LegalTrust.dev | Automatisierter Datenschutz-Report", {
     align: "center",
