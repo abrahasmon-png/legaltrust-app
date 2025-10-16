@@ -24,20 +24,19 @@ export default function Home() {
     }
   };
 
-  const downloadPdf = async () => {
-    const res = await fetch("/api/report", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: domain,
-        score: result?.analysis?.score ?? 72,
-        analysis: { summary: result?.analysis?.summary || "Demo-Report" },
-      }),
-    });
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url);
-  };
+ const downloadPdf = async () => {
+  // Fallbacks falls noch kein Scan gemacht wurde
+  const score = result?.analysis?.score ?? 72;
+  const summary = result?.analysis?.summary ?? "Demo-Report";
+  const res = await fetch("/api/report", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: domain, score, analysis: { summary } })
+  });
+  const blob = await res.blob();
+  const urlObj = URL.createObjectURL(blob);
+  window.open(urlObj);
+};
 
   return (
     <main style={{ padding: 24, fontFamily: "system-ui" }}>
