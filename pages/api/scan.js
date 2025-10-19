@@ -64,4 +64,5 @@ export default async function handler(req, res) {
     try {
       const client = getClient();
 
-      // Wir fordern ein kl
+      // Wir fordern ein kleines Test-JSON an, um die API zu prüfen.
+
