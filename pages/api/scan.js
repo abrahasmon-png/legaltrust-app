@@ -60,9 +60,33 @@ async function respondError(res, err, where = "scan") {
  */
 export default async function handler(req, res) {
   // GET -> Selbsttest (kein Body nötig)
-  if (req.method === "GET") {
-    try {
-      const client = getClient();
+if (req.method === "GET") {
+  try {
+    const client = getClient();
 
-      // Wir fordern ein kleines Test-JSON an, um die API zu prüfen.
+    // Wir fordern ein kleines Test-JSON an, um die OpenAI Responses API zu prüfen
+    const r = await client.responses.create({
+      model: "gpt-4.1-mini",
+      input: 'Give me JSON: {"risk_level":"low","score":95,"summary":"OK"}',
+      text: { format: { type: "json_object" } },
+    });
+
+    const rawText = r.output_text ?? null;
+    let parsed = {};
+    try {
+      parsed = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      parsed = { rawText };
+    }
+
+    return res.status(200).json({
+      ok: true,
+      where: "scan:get",
+      analysis: parsed,
+      meta: { model: "gpt-4.1-mini" },
+    });
+  } catch (err) {
+    return respondError(res, err, "scan:get");
+  }
+}
 
